@@ -10,4 +10,6 @@ const TripSchema = new mongoose.Schema({
   activities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Activity' }]
 }, { timestamps: true });
 
+TripSchema.index({ userId: 1 });
+
 module.exports = mongoose.model('Trip', TripSchema);

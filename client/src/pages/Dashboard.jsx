@@ -4,8 +4,8 @@ import CityImageCard from '../components/CityImageCard';
 import { citiesData } from '../data/citiesData';
 
 const Dashboard = () => {
-  // Only show the first 4 cities as trending
-  const trendingCities = Object.values(citiesData).slice(0, 4);
+  // Show all cities as destinations
+  const trendingCities = Object.values(citiesData);
 
   return (
     <main className="pt-32 pb-20 px-8">

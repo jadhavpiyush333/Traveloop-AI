@@ -11,12 +11,19 @@
   },
   "dependencies": {
     "axios": "^1.16.0",
-    "framer-motion": "^12.38.0",
-    "lucide-react": "^1.14.0",
+    "clsx": "^2.1.1",
+    "docx": "^9.7.1",
+    "file-saver": "^2.0.5",
+    "framer-motion": "^12.41.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.21.0",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.15.0",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

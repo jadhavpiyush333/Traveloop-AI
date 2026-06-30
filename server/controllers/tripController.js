@@ -45,3 +45,24 @@ exports.addActivity = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Get single trip
+exports.getTripById = async (req, res) => {
+  try {
+    const trip = await Trip.findById(req.params.id).populate('activities');
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    res.json(trip);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Update trip (e.g. update itinerary)
+exports.updateTrip = async (req, res) => {
+  try {
+    const trip = await Trip.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(trip);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

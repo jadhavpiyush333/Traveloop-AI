@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, Calendar, DollarSign, Star, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Star, ArrowLeft, Image as ImageIcon, Moon, Clock } from 'lucide-react';
 import { citiesData } from '../data/citiesData';
 import { fetchCityImage } from '../services/imageService';
 
@@ -95,12 +95,14 @@ const DestinationDetail = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
+              className="relative group"
             >
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
               <button 
                 onClick={() => navigate(`/planner?city=${city.id}`)}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-4 px-8 rounded-2xl shadow-[0_0_30px_rgba(59,130,246,0.5)] hover:shadow-[0_0_40px_rgba(147,51,234,0.6)] hover:scale-105 transition-all text-lg whitespace-nowrap"
+                className="relative bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold py-4 px-8 rounded-2xl shadow-xl hover:scale-105 transition-all text-lg whitespace-nowrap flex items-center gap-2"
               >
-                Start Planning
+                Start Planning <ArrowLeft size={18} className="rotate-180" />
               </button>
             </motion.div>
           </div>
@@ -122,14 +124,61 @@ const DestinationDetail = () => {
                 <Star className="text-yellow-400" /> Top Places to Visit
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {city.places.map((place, idx) => (
-                  <div key={idx} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors">
-                    <h3 className="text-xl font-medium text-white">{place}</h3>
-                    <p className="text-gray-400 text-sm mt-2 flex items-center gap-1">
-                      <MapPin size={12} className="text-blue-400"/> Iconic Landmark
-                    </p>
-                  </div>
-                ))}
+                {city.places.map((place, idx) => {
+                  // Consistent cost multiplier logic
+                  const baseVal = parseInt(city.cost.split('–')[0].replace(/[^0-9]/g, ''), 10) || 50000;
+                  const mult = Math.max(0.5, baseVal / 40000);
+                  const estPrice = Math.floor((2500 + (idx * 500)) * mult);
+                  
+                  return (
+                    <div key={idx} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors group">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-xl font-medium text-white">{place}</h3>
+                        <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-1 rounded">
+                          ₹{estPrice.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <p className="text-gray-400 text-sm flex items-center gap-1">
+                        <MapPin size={12} className="text-blue-400"/> Iconic Landmark
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.section>
+
+            {/* Night Life Section - NEW */}
+            <motion.section 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.55 }}
+              className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-3xl p-8 border border-white/10"
+            >
+              <h2 className="text-3xl font-bold mb-6 flex items-center gap-3">
+                <Moon className="text-purple-400" /> Evening & Nightlife
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[
+                  { name: "Rooftop Lounge", desc: "Panoramic city views with cocktails", cost: 4500 },
+                  { name: "Local Night Market", desc: "Evening street food and shopping", cost: 1200 }
+                ].map((item, idx) => {
+                  const baseVal = parseInt(city.cost.split('–')[0].replace(/[^0-9]/g, ''), 10) || 50000;
+                  const mult = Math.max(0.5, baseVal / 40000);
+                  const scaledCost = Math.floor(item.cost * mult);
+                  
+                  return (
+                    <div key={idx} className="flex gap-4 items-center">
+                      <div className="bg-purple-500/10 p-3 rounded-xl text-purple-400">
+                        <Clock size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white">{item.name}</h4>
+                        <p className="text-sm text-gray-400">{item.desc}</p>
+                        <p className="text-xs text-purple-400 font-bold mt-1">Est. Cost: ₹{scaledCost.toLocaleString('en-IN')}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </motion.section>
             

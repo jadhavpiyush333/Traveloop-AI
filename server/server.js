@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const mongoose = require('mongoose');
+const compression = require('compression');
 const cors = require('cors');
 const { Server } = require('socket.io');
 
@@ -13,7 +14,13 @@ const io = new Server(server, {
   }
 });
 
+// Database connection
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/traveloop')
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
 // Middleware
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 
@@ -29,8 +36,8 @@ io.on('connection', (socket) => {
 });
 
 // Routes
-// app.use('/api/auth', require('./routes/authRoutes'));
-// app.use('/api/trips', require('./routes/tripRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/trips', require('./routes/tripRoutes'));
 
 const PORT = process.env.PORT || 5000;
 

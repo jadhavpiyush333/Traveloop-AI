@@ -4,6 +4,7 @@ const ActivitySchema = new mongoose.Schema({
   tripId: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
   name: { type: String, required: true },
   cost: { type: Number, default: 0 },
+  category: { type: String, default: 'Sightseeing' },
   date: { type: Date }
 }, { timestamps: true });
 

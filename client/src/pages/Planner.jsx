@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, MapPin, DollarSign, Plus, Check, Clock, Info } from 'lucide-react';
+import { Calendar, MapPin, DollarSign, Plus, Check, Clock, Info, Moon, Coffee, Utensils, Sparkles, Star, Trash2, FileText, Download, Share2, Presentation } from 'lucide-react';
+import { fetchCityImage, fetchMultiPhoto } from '../services/imageService';
 import { citiesData } from '../data/citiesData';
+import { exportToPDF, exportToWord, exportToPPT } from '../utils/exportUtils';
 
 const Planner = () => {
   const [searchParams] = useSearchParams();
@@ -22,35 +24,62 @@ const Planner = () => {
   // Budget state
   const [targetBudget, setTargetBudget] = useState(0);
   const [totalSpent, setTotalSpent] = useState(0);
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState('');
 
   // When selected cities change, calculate dynamic target budget based on average min cost
   useEffect(() => {
-    let newTarget = 0;
-    selectedCities.forEach(city => {
-      // Parse "₹25,000 – ₹60,000" to get 25000
-      const costStr = city.cost.split('–')[0].replace(/[^0-9]/g, '');
-      if (costStr) {
-        newTarget += parseInt(costStr, 10);
-      }
-    });
-    setTargetBudget(newTarget || 50000); // Default if no cities
+    if (itinerary.length === 0) { // Only auto-calculate if no itinerary yet
+      let newTarget = 0;
+      selectedCities.forEach(city => {
+        const costStr = city.cost.split('–')[0].replace(/[^0-9]/g, '');
+        if (costStr) {
+          newTarget += parseInt(costStr, 10);
+        }
+      });
+      setTargetBudget(newTarget || 50000);
+    }
   }, [selectedCities]);
+
+  // Load existing trip if ID is in URL (simplified for now)
+  useEffect(() => {
+    const tripId = searchParams.get('id');
+    if (tripId) {
+      // Mock fetch
+      // const loadTrip = async () => { ... }
+    }
+  }, [searchParams]);
+
+  const saveTrip = async () => {
+    // Logic to save to /api/trips
+    console.log("Saving trip...", { selectedCities, itinerary, targetBudget, totalSpent });
+    alert("Trip saved successfully! (Simulated)");
+  };
 
   // Derived available activities based on selected cities
   const allGeneratedActivities = [];
   selectedCities.forEach(city => {
+    // Helper to get cost multiplier based on city's budget
+    const getCostMultiplier = (cityCostStr) => {
+      const baseValue = parseInt(cityCostStr.split('–')[0].replace(/[^0-9]/g, ''), 10) || 50000;
+      return Math.max(0.5, baseValue / 40000); // Normalize: NYC ≈ 3.7x, London ≈ 3x, Pune ≈ 0.4x
+    };
+
+    const multiplier = getCostMultiplier(city.cost);
+
     // 1. Add real places from citiesData
     city.places.forEach(place => {
       allGeneratedActivities.push({
         id: `${city.id}-${place.replace(/\s+/g, '-').toLowerCase()}`,
         name: place,
         city: city.name,
-        estimatedCost: Math.floor(Math.random() * 3000) + 500
+        // Scale cost based on city premium level (Higher base for premium cities)
+        estimatedCost: Math.floor((Math.random() * 4000 + 3000) * multiplier)
       });
     });
 
-    // 2. Generate dynamic filler activities based on the number of trip days
-    // We want at least ~3-4 activities per day total across all selected cities.
+    // 2. Generate dynamic filler activities
     const neededActivitiesPerCity = Math.ceil((tripDays * 4) / selectedCities.length);
     
     const genericTemplates = [
@@ -70,7 +99,7 @@ const Planner = () => {
         id: `${city.id}-generic-${templateIdx}`,
         name: `${city.name} ${genericTemplates[templateIdx]}`,
         city: city.name,
-        estimatedCost: Math.floor(Math.random() * 2000) + 500
+        estimatedCost: Math.floor((Math.random() * 2000 + 1500) * multiplier)
       });
       generatedCount++;
       templateIdx++;
@@ -122,6 +151,203 @@ const Planner = () => {
     ));
   };
 
+  const handleAIPlan = () => {
+    if (itinerary.length === 0) {
+      alert("Please add some activities first!");
+      return;
+    }
+
+    const newItinerary = [];
+    const itemsPerDay = Math.ceil(itinerary.length / tripDays);
+    
+    // BUG FIX: Filter out previously generated AI blocks to avoid duplicates
+    const realActivities = itinerary.filter(item => !item.id.toString().startsWith('ai-'));
+    
+    if (realActivities.length === 0) {
+      alert("Please add some real activities first!");
+      return;
+    }
+
+    const sortedOriginal = [...realActivities].sort((a, b) => a.city.localeCompare(b.city));
+
+    const mealTemplates = {
+      'Breakfast': ['Cafe', 'Bistro', 'Bakery', 'Breakfast Club'],
+      'Lunch': ['Kitchen', 'Grill', 'Deli', 'Trattoria'],
+      'Dinner': ['Premium Restaurant', 'Sky Lounge', 'Steakhouse', 'Fine Dining']
+    };
+
+    for (let day = 1; day <= tripDays; day++) {
+      const currentCityName = selectedCities[0]?.name || "Destination";
+      
+      // 1. Morning Slot: Breakfast + First Attraction
+      const morningAttraction = sortedOriginal.shift();
+      if (morningAttraction) {
+        newItinerary.push({
+          ...morningAttraction,
+          day,
+          slot: 'Morning',
+          mealType: 'Breakfast',
+          restaurant: `${morningAttraction.name} ${mealTemplates['Breakfast'][Math.floor(Math.random() * 4)]}`,
+          estimatedCost: morningAttraction.estimatedCost + 800
+        });
+      }
+
+      // 2. Afternoon Slot: Lunch + Second Attraction (if exists)
+      const afternoonAttraction = sortedOriginal.shift();
+      if (afternoonAttraction) {
+        newItinerary.push({
+          ...afternoonAttraction,
+          day,
+          slot: 'Afternoon',
+          mealType: 'Lunch',
+          restaurant: `${afternoonAttraction.city} ${mealTemplates['Lunch'][Math.floor(Math.random() * 4)]}`,
+          estimatedCost: afternoonAttraction.estimatedCost + 1500
+        });
+      }
+
+      // 3. Evening Slot: Night Activity + Dinner
+      const nightOptions = [
+        "Premium Rooftop Bar Experience", "Guided Night Food Tour", 
+        "VIP Lounge Experience", "Fine Dining Dinner", 
+        "Private City Night Drive", "Jazz Club & Cocktails"
+      ];
+      const randomNight = nightOptions[Math.floor(Math.random() * nightOptions.length)];
+      
+      newItinerary.push({
+        id: `ai-night-${day}-${Date.now()}`,
+        name: randomNight,
+        city: currentCityName,
+        day,
+        slot: 'Evening',
+        mealType: 'Dinner',
+        restaurant: `${currentCityName} ${mealTemplates['Dinner'][Math.floor(Math.random() * 4)]}`,
+        estimatedCost: 5500,
+        category: 'Night'
+      });
+    }
+
+    // Capture any remaining activities that didn't fit in the 2-per-day slot
+    let index = 0;
+    while (sortedOriginal.length > 0) {
+      const act = sortedOriginal.shift();
+      const targetDay = (index % tripDays) + 1;
+      newItinerary.push({
+        ...act,
+        day: targetDay,
+        slot: 'Extra',
+        mealType: 'Snack',
+        restaurant: `${act.city} Refreshments`
+      });
+      index++;
+    }
+
+    setItinerary(newItinerary);
+    setTotalSpent(newItinerary.reduce((sum, item) => sum + (item.estimatedCost || 0), 0));
+  };
+
+  const handleClearItinerary = () => {
+    if (window.confirm("Are you sure you want to clear your entire itinerary and selected cities?")) {
+      setItinerary([]);
+      setSelectedCities([]);
+      setTotalSpent(0);
+      setTargetBudget(50000); // Reset to default
+    }
+  };
+
+  const handleShareTrip = async () => {
+    if (itinerary.length === 0) {
+      alert("Add some activities to your itinerary before sharing!");
+      return;
+    }
+
+    const cities = selectedCities.map(c => c.name).join(', ');
+    
+    let activityList = "";
+    Array.from({ length: tripDays }).forEach((_, i) => {
+      const day = i + 1;
+      const dayActivities = itinerary.filter(item => item.day === day);
+      if (dayActivities.length > 0) {
+        activityList += `\n📅 Day ${day}:\n`;
+        dayActivities.forEach(act => {
+          activityList += `- ${act.name}: ₹${act.estimatedCost.toLocaleString('en-IN')}\n`;
+        });
+      }
+    });
+
+    const shareText = `Check out my ${tripDays}-day trip to ${cities} planned on Traveloop!\n` +
+      `Total Activities: ${itinerary.length}\n` +
+      `Estimated Budget: ₹${totalSpent.toLocaleString('en-IN')}\n` +
+      `${activityList}\n` +
+      `Join me on my next adventure!`;
+
+    const shareData = {
+      title: 'My Traveloop Trip',
+      text: shareText,
+      url: window.location.href // In a real app, this would be a unique link to the saved trip
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+        alert("Trip summary copied to clipboard! You can now paste and share it.");
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
+  const handleExport = async (type) => {
+    if (itinerary.length === 0) return alert("Add some activities to your itinerary first!");
+    
+    setIsExporting(true);
+    setExportProgress('Fetching place imagery...');
+
+    try {
+      const cityImages = {};
+      for (const city of selectedCities) {
+        cityImages[city.name] = await fetchMultiPhoto(city.imageQuery || city.name, 3);
+      }
+      
+      const activityImages = {};
+      let count = 0;
+      for (const act of itinerary) {
+        count++;
+        // Reduced counts to stay within API limits and preserve memory
+        setExportProgress(`Fetching visuals for ${act.name}...`);
+        activityImages[act.id] = await fetchMultiPhoto(act.name + " " + (act.city || selectedCities[0]?.name), 3);
+        
+        if (act.restaurant) {
+          setExportProgress(`Curating dining visuals for ${act.restaurant}...`);
+          activityImages[act.id + "-res"] = await fetchMultiPhoto(act.restaurant + " " + (act.city || selectedCities[0]?.name), 1);
+        }
+      }
+
+      setExportProgress(`Designing ${type.toUpperCase()} Portfolio...`);
+      
+      try {
+        if (type === 'pdf') await exportToPDF(itinerary, tripDays, selectedCities, totalSpent, cityImages, activityImages);
+        if (type === 'word') await exportToWord(itinerary, tripDays, selectedCities, totalSpent, cityImages, activityImages);
+        if (type === 'ppt') await exportToPPT(itinerary, tripDays, selectedCities, totalSpent, cityImages, activityImages);
+      } catch (genErr) {
+        console.error(`${type.toUpperCase()} Generation Error:`, genErr);
+        throw new Error(`Failed to generate ${type.toUpperCase()}. The file might be too large.`);
+      }
+      
+    } catch (err) {
+      console.error('Export failed sequence:', err);
+      alert(`Export Failed: ${err.message || 'API limit reached or network error'}`);
+    } finally {
+      setIsExporting(false);
+      setExportProgress('');
+    }
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
   const progressPercentage = targetBudget > 0 ? Math.min((totalSpent / targetBudget) * 100, 100) : 0;
   const isOverBudget = totalSpent > targetBudget;
 
@@ -135,7 +361,7 @@ const Planner = () => {
           <p className="text-gray-400">Select destinations to unlock activities, and watch your budget update in real-time.</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Left Column: Settings & Activities */}
           <div className="lg:col-span-1 space-y-6">
             
@@ -205,9 +431,18 @@ const Planner = () => {
 
             {/* Budget Widget */}
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-3xl">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                <DollarSign className={isOverBudget ? "text-red-400" : "text-green-400"} /> Budget Tracker
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <DollarSign className={isOverBudget ? "text-red-400" : "text-green-400"} /> Budget Tracker
+                </h2>
+                <button 
+                  onClick={() => setIsEditingBudget(!isEditingBudget)}
+                  className="text-xs text-blue-400 hover:underline"
+                >
+                  {isEditingBudget ? "Done" : "Edit Target"}
+                </button>
+              </div>
+              
               <div className="flex items-end justify-between mb-2">
                 <span className="text-gray-400">Total Spent</span>
                 <span className={`text-2xl font-bold ${isOverBudget ? "text-red-400" : "text-white"}`}>
@@ -224,9 +459,18 @@ const Planner = () => {
               </div>
               <div className="flex justify-between mt-2">
                 <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <Info size={12}/> Auto-calculated
+                  <Info size={12}/> {isEditingBudget ? "Manual entry" : "Auto-calculated"}
                 </p>
-                <p className="text-xs text-gray-400">Target: ₹{targetBudget.toLocaleString('en-IN')}</p>
+                {isEditingBudget ? (
+                  <input 
+                    type="number"
+                    value={targetBudget}
+                    onChange={(e) => setTargetBudget(parseInt(e.target.value) || 0)}
+                    className="bg-black/40 border border-white/20 rounded px-2 py-0.5 text-xs text-white max-w-[80px]"
+                  />
+                ) : (
+                  <p className="text-xs text-gray-400">Target: ₹{targetBudget.toLocaleString('en-IN')}</p>
+                )}
               </div>
             </div>
 
@@ -275,21 +519,93 @@ const Planner = () => {
           </div>
 
           {/* Right Column: Itinerary Timeline */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 md:col-span-1">
             <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl h-full min-h-[600px]">
-              <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <Calendar className="text-purple-400" /> Your Itinerary
-                </h2>
-                <div className="flex gap-2">
-                  <button className="text-sm bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition font-medium">
-                    Save
+              <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-6">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-3">
+                    <Calendar className="text-purple-400" /> Your Itinerary
+                  </h2>
+                  <p className="text-gray-400 text-sm mt-1">{itinerary.length} items planned across {tripDays} days</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handleClearItinerary}
+                    className="p-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl transition border border-red-500/20"
+                    title="Clear All"
+                  >
+                    <Trash2 size={18} />
                   </button>
-                  <button className="text-sm bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition font-medium">
-                    Share
+                  <button 
+                    onClick={handleAIPlan}
+                    className="relative group overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-2.5 rounded-xl transition font-bold text-white shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95"
+                  >
+                    <span className="relative flex items-center gap-2 z-10">
+                      <Sparkles size={18} />
+                      AI Arrange
+                    </span>
+                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+                  </button>
+                  
+                  {/* Premium Export Button Group */}
+                  <div className="flex flex-wrap items-center bg-white/5 p-1 rounded-xl border border-white/10 ml-2 gap-1 sm:gap-0">
+                    <button 
+                      onClick={() => handleExport('pdf')}
+                      disabled={isExporting}
+                      className="p-2.5 hover:bg-white/10 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                      title="Professional PDF"
+                    >
+                      <Download size={18} className="text-red-400" />
+                    </button>
+                    <div className="w-px h-6 bg-white/10"></div>
+                    <button 
+                      onClick={() => handleExport('word')}
+                      disabled={isExporting}
+                      className="p-2.5 hover:bg-white/10 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                      title="MS Word (.docx)"
+                    >
+                      <FileText size={18} className="text-blue-400" />
+                    </button>
+                    <div className="w-px h-6 bg-white/10"></div>
+                    <button 
+                      onClick={() => handleExport('ppt')}
+                      disabled={isExporting}
+                      className="p-2.5 hover:bg-white/10 text-white rounded-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                      title="Premium Presentation"
+                    >
+                      <Presentation size={18} className="text-amber-400" />
+                    </button>
+                  </div>
+
+                  <button 
+                    onClick={handleShareTrip}
+                    className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition shadow-lg shadow-blue-500/20"
+                  >
+                    <Share2 size={18} />
                   </button>
                 </div>
               </div>
+
+              {/* Progress Overlay for Exports */}
+              <AnimatePresence>
+                {isExporting && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center"
+                  >
+                    <div className="bg-white/10 border border-white/20 p-8 rounded-3xl max-w-sm w-full text-center">
+                      <div className="relative w-20 h-20 mx-auto mb-6">
+                        <div className="absolute inset-0 border-4 border-blue-500/20 rounded-full"></div>
+                        <div className="absolute inset-0 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                      <h3 className="text-xl font-bold mb-2">Generating Report</h3>
+                      <p className="text-gray-400 text-sm">{exportProgress}</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {itinerary.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -326,16 +642,34 @@ const Planner = () => {
                                   initial={{ opacity: 0, y: 20 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, x: -20 }}
-                                  className="bg-black/30 border border-white/10 p-4 rounded-xl relative group"
+                                  className="bg-black/30 border border-white/10 p-4 md:p-6 rounded-xl relative group"
                                 >
                                   <div className="absolute -left-[45px] top-1/2 -translate-y-1/2 w-3 h-3 bg-blue-500 rounded-full border-2 border-[#0f172a]"></div>
                                   
                                   <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="font-bold text-white text-lg">{item.name}</h4>
-                                      <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                                        <MapPin size={14} className="text-blue-400" /> {item.city}
-                                      </p>
+                                    <div className="flex gap-4 items-start">
+                                      <div className={`p-2 rounded-lg ${
+                                        item.category === 'Night' ? 'bg-purple-500/20 text-purple-400' :
+                                        item.category === 'Rest' ? 'bg-orange-500/20 text-orange-400' :
+                                        'bg-blue-500/10 text-blue-400'
+                                      }`}>
+                                        {item.category === 'Food' ? <Utensils size={20} /> : 
+                                         item.category === 'Adventure' ? <Star size={20} /> :
+                                         item.category === 'Night' ? <Moon size={20} /> :
+                                         item.category === 'Rest' ? <Coffee size={20} /> :
+                                         <MapPin size={20} />}
+                                      </div>
+                                      <div>
+                                        <h4 className="font-bold text-white text-lg">{item.name}</h4>
+                                        <div className="flex items-center gap-3 mt-1">
+                                          <p className="text-sm text-gray-400 flex items-center gap-1">
+                                            <MapPin size={14} className="text-blue-400" /> {item.city}
+                                          </p>
+                                          <span className="text-[10px] uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded text-gray-500 border border-white/5">
+                                            {item.category || 'Sightseeing'}
+                                          </span>
+                                        </div>
+                                      </div>
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
                                       <div className="flex items-center gap-4">
